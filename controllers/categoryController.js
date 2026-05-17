@@ -6,9 +6,11 @@ const getCategories = async (req, res) => {
     const categories = await Category.find();
     const mappedCategories = categories.map(cat => {
       const c = cat.toObject();
+      const displayName = c.name || c.title || "Untitled Category";
       return {
         ...c,
-        name: c.name || c.title || "Untitled Category"
+        name: displayName,
+        title: displayName
       };
     });
     res.json({ success: true, data: { categories: mappedCategories } });
@@ -23,7 +25,9 @@ const getCategoryById = async (req, res) => {
     const category = await Category.findById(req.params.id);
     if (!category) return res.status(404).json({ success: false, message: "Category not found" });
     const c = category.toObject();
-    c.name = c.name || c.title || "Untitled Category";
+    const displayName = c.name || c.title || "Untitled Category";
+    c.name = displayName;
+    c.title = displayName;
     res.json({ success: true, data: c });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -37,7 +41,17 @@ const createCategory = async (req, res) => {
     return res.status(400).json({ success: false, message: "Name and slug are required" });
 
   try {
-    const newCategory = new Category({ name, slug, image, description, parentId, type });
+    const sanitizedParentId = parentId === "" ? null : parentId;
+    // Save both name and title for compatibility
+    const newCategory = new Category({ 
+      name, 
+      title: name, 
+      slug, 
+      image, 
+      description, 
+      parentId: sanitizedParentId, 
+      type 
+    });
     const savedCategory = await newCategory.save();
     res.status(201).json({ success: true, message: "Category created successfully", data: savedCategory });
   } catch (err) {
@@ -55,7 +69,7 @@ const updateCategory = async (req, res) => {
     category.slug = req.body.slug || category.slug;
     category.image = req.body.image || category.image;
     category.description = req.body.description !== undefined ? req.body.description : category.description;
-    category.parentId = req.body.parentId || category.parentId;
+    category.parentId = req.body.parentId === "" ? null : (req.body.parentId || category.parentId);
     category.type = req.body.type || category.type;
 
     const updatedCategory = await category.save();
